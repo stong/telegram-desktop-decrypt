@@ -27,6 +27,7 @@ import (
 func main() {
 	var rootCmd = &cobra.Command{Use: os.Args[0]}
 	var password string
+	var output string
 	var verbose bool
 	var stream int
 	var parse bool
@@ -180,10 +181,20 @@ func main() {
 			if err != nil {
 				log.Fatalf("%+v", err)
 			}
-			os.Stdout.Write(data)
+			if output != "" {
+				f, err := os.Create(output)
+				if err != nil {
+					log.Fatalf("could not create file '%s': %+v", output, err)
+				}
+				defer f.Close()
+				f.Write(data)
+			} else {
+				os.Stdout.Write(data)
+			}
 		},
 	}
 	cmdMapDecrypt.Flags().StringVarP(&password, "password", "p", "", "optional password (default='')")
+	cmdMapDecrypt.Flags().StringVarP(&output, "outfile", "o", "", "output file")
 	cmdMap.AddCommand(cmdMapDecrypt)
 	cmdMapListKeys := &cobra.Command{
 		Use:   "listkeys [map file]",

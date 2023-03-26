@@ -28,6 +28,7 @@ func ReadStreams(b []byte) ([][]byte, error) {
 func ReadStream(r io.Reader) ([]byte, error) {
 	var streamSize uint32
 	err := binary.Read(r, binary.BigEndian, &streamSize)
+	fmt.Printf("%x\n", streamSize)
 	if err != nil {
 		return nil, err
 	}

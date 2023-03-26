@@ -115,6 +115,13 @@ var DBI = map[uint32]string{
 	0x58: "DbiScalePercent",
 	0x59: "DbiPlaybackSpeed",
 	0x5a: "DbiLanguagesKey",
+	0x5b: "DbiCallSettingsOld",
+	0x5c: "DbiCacheSettings",
+	0x5d: "DbiTxtDomainStringOld",
+	0x5e: "DbiApplicationSettings",
+	0x5f: "DbiDialogsFiltersOld",
+	0x60: "DbiFallbackProductionConfig",
+	0x61: "DbiBackgroundKey",
 	333:  "DbiEncryptedWithSalt",
 	444:  "DbiEncrypted",
 	666:  "DbiVersion",
@@ -424,7 +431,7 @@ type UserSetting struct {
 		User     string
 		Password string
 	}
-	DbiConnectionType int32 //TODO
+	DbiConnectionType int32 // TODO
 	DbiThemeKeyOld    uint64
 	DbiThemeKey       struct {
 		KeyDay    uint64
@@ -505,10 +512,25 @@ type UserSetting struct {
 		PeerId uint64
 		MsgId  int32
 	}
-	DbiDialogLastPath string
-	DbiSongVolume     int32
-	DbiVideoVolume    int32
-	DbiPlaybackSpeed  int32
+	DbiDialogLastPath  string
+	DbiSongVolume      int32
+	DbiVideoVolume     int32
+	DbiPlaybackSpeed   int32
+	DbiCallSettingsOld struct {
+		CallSettings []byte
+	}
+	DbiTxtDomainStringOld  string
+	DbiApplicationSettings struct {
+		Serialized []byte
+	}
+	DbiDialogsFiltersOld struct {
+		Enabled uint32
+	}
+	DbiFallbackProductionConfig []byte
+	DbiBackgroundKey            struct {
+		KeyDay   uint64
+		KeyNight uint64
+	}
 }
 
 type RecentHashtagsAndBots struct{}

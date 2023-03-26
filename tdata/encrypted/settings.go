@@ -33,7 +33,7 @@ func ReadESettings(tfile tdata.RawTDF) (ESettings, error) {
 
 // GetKey returns the settings key
 func (t ESettings) GetKey(password string) []byte {
-	settingsKey := decrypt.CreateLocalKey([]byte(password), t.Salt)
+	settingsKey := decrypt.CreateLocalLegacyKey([]byte(password), t.Salt)
 	return settingsKey
 }
 

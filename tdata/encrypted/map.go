@@ -11,11 +11,12 @@ import (
 
 // EMap reflects the streams contained in the tdata/D877F783D5D3EF8C/map0 file.
 type EMap struct {
-	Salt         []byte
-	KeyEncrypted []byte
-	MapEncrypted []byte
+	Salt         []byte // 0x20
+	KeyEncrypted []byte // 0x120 bytes
+	MapEncrypted []byte // variable
 }
 
+// Domain::StartModernResult Domain::startModern(
 // ReadEMap opens the map file
 func ReadEMap(rawtdf tdata.RawTDF) (EMap, error) {
 	result := EMap{}
@@ -27,6 +28,9 @@ func ReadEMap(rawtdf tdata.RawTDF) (EMap, error) {
 		return result, fmt.Errorf("expected 3 streams, got %d", len(streams))
 	}
 	result.Salt = streams[0]
+	if len(result.Salt) != 32 {
+		return result, fmt.Errorf("bad salt len %d", len(result.Salt))
+	}
 	result.KeyEncrypted = streams[1]
 	result.MapEncrypted = streams[2]
 	return result, err

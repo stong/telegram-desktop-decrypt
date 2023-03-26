@@ -3,6 +3,7 @@ package decrypt
 import (
 	"crypto/aes"
 	"crypto/sha1"
+	"crypto/sha512"
 	"encoding/hex"
 	"fmt"
 
@@ -12,13 +13,32 @@ import (
 )
 
 // CreateLocalKey creates the key used by DecryptLocal. The default password is empty.
-func CreateLocalKey(pass []byte, salt []byte) []byte {
+func CreateLocalLegacyKey(pass []byte, salt []byte) []byte {
 	iter := 4
 	if len(pass) > 0 {
 		iter = 4000
 	}
 	keyLen := 256
 	result := pbkdf2.Key(pass, salt, iter, keyLen, sha1.New)
+	return result
+}
+
+func CreateLocalKey(pass []byte, salt []byte) []byte {
+	iter := 1
+	if len(pass) > 0 {
+		iter = 100000
+	}
+
+	hash := sha512.New()
+	hash.Write(salt)
+	hash.Write(pass)
+	hash.Write(salt)
+	// hash.Write(fuck)
+	hashOut := make([]byte, 0)
+	hashOut = hash.Sum(hashOut)
+
+	keyLen := 256
+	result := pbkdf2.Key(hashOut, salt, iter, keyLen, sha512.New)
 	return result
 }
 
