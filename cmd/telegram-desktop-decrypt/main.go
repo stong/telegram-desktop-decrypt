@@ -4,19 +4,12 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"github.com/atilaromero/telegram-desktop-decrypt/qt"
+	"github.com/atilaromero/telegram-desktop-decrypt/tdata/decrypted"
+	"github.com/atilaromero/telegram-desktop-decrypt/tdata/encrypted"
 	"log"
 	"os"
-	"path"
-	"path/filepath"
 	"reflect"
-	"unsafe"
-
-	"github.com/pkg/errors"
-
-	"github.com/atilaromero/telegram-desktop-decrypt/tdata/decrypted"
-
-	"github.com/atilaromero/telegram-desktop-decrypt/tdata/encrypted"
 
 	"github.com/atilaromero/telegram-desktop-decrypt/decrypt"
 	"github.com/atilaromero/telegram-desktop-decrypt/tdata"
@@ -126,12 +119,12 @@ func main() {
 	cmdSettingsDecrypt.Flags().BoolVarP(&parse, "parse", "", true, "(default=true)")
 	cmdSettings.AddCommand(cmdSettingsDecrypt)
 
-	cmdMap := &cobra.Command{
-		Use:   "map [map file]",
-		Short: "work with map file",
+	cmdKey := &cobra.Command{
+		Use:   "key [key file]",
+		Short: "work with key file",
 	}
-	rootCmd.AddCommand(cmdMap)
-	cmdMapKey := &cobra.Command{
+	rootCmd.AddCommand(cmdKey)
+	cmdKeyGetkey := &cobra.Command{
 		Use:   "getkey [map file]",
 		Short: "get map key in hex",
 		Args:  cobra.ExactArgs(1),
@@ -157,47 +150,17 @@ func main() {
 			fmt.Println(hex.EncodeToString(localkey))
 		},
 	}
-	cmdMapKey.Flags().StringVarP(&password, "password", "p", "", "optional password (default='')")
-	cmdMap.AddCommand(cmdMapKey)
-	cmdMapDecrypt := &cobra.Command{
-		Use:   "decrypt [map file]",
-		Short: "decrypt map file",
-		Run: func(cmd *cobra.Command, args []string) {
-			filename := args[0]
-			f, err := os.Open(filename)
-			if err != nil {
-				log.Fatalf("could not open file '%s': %+v", filename, err)
-			}
-			defer f.Close()
-			rawtdf, err := tdata.ReadRawTDF(f)
-			if err != nil {
-				log.Fatalf("could not interpret file '%s': %+v", filename, err)
-			}
-			emap, err := encrypted.ReadEMap(rawtdf)
-			if err != nil {
-				log.Fatalf("%+v", err)
-			}
-			data, err := emap.Decrypt(password)
-			if err != nil {
-				log.Fatalf("%+v", err)
-			}
-			if output != "" {
-				f, err := os.Create(output)
-				if err != nil {
-					log.Fatalf("could not create file '%s': %+v", output, err)
-				}
-				defer f.Close()
-				f.Write(data)
-			} else {
-				os.Stdout.Write(data)
-			}
-		},
+	cmdKeyGetkey.Flags().StringVarP(&password, "password", "p", "", "optional password (default='')")
+	cmdKey.AddCommand(cmdKeyGetkey)
+
+	cmdMap := &cobra.Command{
+		Use:   "map [key file] [map file]",
+		Short: "work with map file",
 	}
-	cmdMapDecrypt.Flags().StringVarP(&password, "password", "p", "", "optional password (default='')")
-	cmdMapDecrypt.Flags().StringVarP(&output, "outfile", "o", "", "output file")
-	cmdMap.AddCommand(cmdMapDecrypt)
+	rootCmd.AddCommand(cmdMap)
+
 	cmdMapListKeys := &cobra.Command{
-		Use:   "listkeys [map file]",
+		Use:   "listkeys [key file] [map file]",
 		Short: "decrypt map and list keys found on it",
 		Run: func(cmd *cobra.Command, args []string) {
 			filename := args[0]
@@ -214,16 +177,36 @@ func main() {
 			if err != nil {
 				log.Fatalf("%+v", err)
 			}
-			data, err := emap.Decrypt(password)
+			localkey, err := emap.GetKey(password)
 			if err != nil {
 				log.Fatalf("%+v", err)
+			}
+
+			filename = args[1]
+			f2, err := os.Open(filename)
+			if err != nil {
+				log.Fatalf("could not open file '%s': %+v", filename, err)
+			}
+			defer f2.Close()
+
+			rawtdf2, err := tdata.ReadRawTDF(f2)
+			if err != nil {
+				log.Fatalf("could not interpret file '%s': %+v", filename, err)
+			}
+			streams, err := qt.ReadStreams(rawtdf2.Data)
+			if err != nil {
+				log.Fatalf("could not interpret qt streams '%s': %+v", filename, err)
+			}
+			data, err := decrypt.DecryptLocal(streams[2], localkey)
+			if err != nil {
+				log.Fatalf("failed to decrypt '%s': %+v", filename, err)
 			}
 			dmap, err := decrypted.ReadDMap(data)
 			if err != nil {
 				log.Fatalf("%+v", err)
 			}
 			for k, v := range dmap.Files {
-				fmt.Println(k, v)
+				fmt.Println(k, reflect.TypeOf(decrypted.LSK[v]))
 			}
 		},
 	}
@@ -231,15 +214,10 @@ func main() {
 	cmdMap.AddCommand(cmdMapListKeys)
 
 	cmdDecrypt := &cobra.Command{
-		Use:   "decrypt [tdata file] [key in hex (only first 136 bytes matter)]",
+		Use:   "decrypt [key file] [map file]",
 		Short: "decrypt a regular tdata file",
-		Args:  cobra.ExactArgs(2),
 		Run: func(cmd *cobra.Command, args []string) {
 			filename := args[0]
-			key, err := hex.DecodeString(args[1])
-			if err != nil {
-				log.Fatalf("invalid key (must be in hex): %+v", err)
-			}
 			f, err := os.Open(filename)
 			if err != nil {
 				log.Fatalf("could not open file '%s': %+v", filename, err)
@@ -249,154 +227,52 @@ func main() {
 			if err != nil {
 				log.Fatalf("could not interpret file '%s': %+v", filename, err)
 			}
-			cache, err := encrypted.ReadECache(rawtdf)
-			if err != nil {
-				log.Fatalf("error reading tdata file: %+v", err)
-			}
-			data, err := decrypt.DecryptLocal(cache.Encrypted, key)
-			if err != nil {
-				log.Fatalf("could not decrypt file: %+v", err)
-			}
-			os.Stdout.Write(data)
-		},
-	}
-	cmdDecrypt.Flags().IntVarP(&stream, "stream", "s", 0, "stream number (default=0)")
-	rootCmd.AddCommand(cmdDecrypt)
-
-	cmdBulkDecrypt := &cobra.Command{
-		Use:   "bulkdecrypt [map file] [outdir]",
-		Short: "decrypt and parse all files in map folder, and save results in outdir",
-		Args:  cobra.ExactArgs(2),
-		Run: func(cmd *cobra.Command, args []string) {
-			mappath := args[0]
-			outdir := args[1]
-			srcdir, err := filepath.Abs(mappath)
-			if err != nil {
-				log.Fatalf("%+v", err)
-			}
-			srcdir = filepath.Dir(srcdir)
-			f, err := os.Open(mappath)
-			if err != nil {
-				log.Fatalf("could not open file '%s': %+v", mappath, err)
-			}
-			defer f.Close()
-			rawtdf, err := tdata.ReadRawTDF(f)
-			if err != nil {
-				log.Fatalf("could not interpret file '%s': %+v", mappath, err)
-			}
 			emap, err := encrypted.ReadEMap(rawtdf)
 			if err != nil {
 				log.Fatalf("%+v", err)
-			}
-			d, err := emap.Decrypt(password)
-			if err != nil {
-				log.Fatalf("%+v", err)
-			}
-			dmap, err := decrypted.ReadDMap(d)
-			if err != nil {
-				log.Fatalf("could not decrypt file '%s': %+v", mappath, err)
 			}
 			localkey, err := emap.GetKey(password)
 			if err != nil {
 				log.Fatalf("%+v", err)
 			}
-			err = BulkDecrypt(dmap, localkey, srcdir, outdir, parse)
+			// settings, err := encrypted.ReadESettings(rawtdf)
+			// localkey := settings.GetKey("")
+
+			filename = args[1]
+			f2, err := os.Open(filename)
 			if err != nil {
-				log.Fatalf("%+v", err)
+				log.Fatalf("could not open file '%s': %+v", filename, err)
+			}
+			defer f2.Close()
+
+			rawtdf2, err := tdata.ReadRawTDF(f2)
+			if err != nil {
+				log.Fatalf("could not interpret file '%s': %+v", filename, err)
+			}
+			streams, err := qt.ReadStreams(rawtdf2.Data)
+			if err != nil {
+				log.Fatalf("could not interpret qt streams '%s': %+v", filename, err)
+			}
+			data, err := decrypt.DecryptLocal(streams[stream], localkey)
+			if err != nil {
+				log.Fatalf("failed to decrypt '%s': %+v", filename, err)
+			}
+
+			if output != "" {
+				f, err := os.Create(output)
+				if err != nil {
+					log.Fatalf("could not create file '%s': %+v", output, err)
+				}
+				defer f.Close()
+				f.Write(data)
+			} else {
+				os.Stdout.Write(data)
 			}
 		},
 	}
-	cmdBulkDecrypt.Flags().StringVarP(&password, "password", "p", "", "optional password (default='')")
-	cmdBulkDecrypt.Flags().BoolVarP(&parse, "parse", "", true, "(default=true)")
-	rootCmd.AddCommand(cmdBulkDecrypt)
+	cmdDecrypt.Flags().StringVarP(&output, "outfile", "o", "", "output file")
+	cmdDecrypt.Flags().IntVarP(&stream, "stream", "s", 0, "stream number (default=0)")
+	rootCmd.AddCommand(cmdDecrypt)
 
 	rootCmd.Execute()
-}
-
-func BulkDecrypt(dmap decrypted.DMap, localkey []byte, srcdir string, outdir string, parse bool) error {
-	files, err := ioutil.ReadDir(srcdir)
-	if err != nil {
-		return err
-	}
-	err = os.Mkdir(outdir, 0755)
-	if err != nil {
-		return fmt.Errorf("outdir should not exist: %+v", err)
-	}
-	for _, fpath := range files {
-		if fpath.Name() == "map0" || fpath.Name() == "map1" {
-			continue
-		}
-		fname := fpath.Name()[:len(fpath.Name())-1]
-		var typename string
-		keytype, ok := dmap.Files[fname]
-		if ok {
-			typename = reflect.TypeOf(decrypted.LSK[keytype]).Name()
-		} else {
-			typename = "Unknown"
-		}
-		keytypepath := path.Join(outdir, typename)
-		os.Mkdir(keytypepath, 0755) // ignore error
-		encryptedfile := path.Join(srcdir, fpath.Name())
-		decryptedfile := path.Join(keytypepath, fpath.Name()+".rawdecrypted")
-		f, err := os.Open(encryptedfile)
-		if err != nil {
-			return fmt.Errorf("could not open file '%s': %+v", encryptedfile, err)
-		}
-		defer f.Close()
-		rawtdf, err := tdata.ReadRawTDF(f)
-		if err != nil {
-			return errors.Wrap(err, fmt.Sprintf("error reading tdata file %+v", fpath.Name()))
-		}
-		f.Close()
-
-		ecache, err := encrypted.ReadECache(rawtdf)
-		if err != nil {
-			log.Fatalf("error reading ecache file: %+v", err)
-		}
-
-		rawdecrypted, err := ecache.Decrypt(localkey)
-		if err != nil {
-			return fmt.Errorf("error decrypting tdata file '%s': %+v", encryptedfile, err)
-		}
-
-		ioutil.WriteFile(decryptedfile, rawdecrypted, 0444)
-
-		if !parse {
-			continue
-		}
-
-		if typename == "Unknown" {
-			continue
-		}
-
-		if unsafe.Sizeof(decrypted.LSK[keytype]) == 0 {
-			continue
-		}
-
-		cache, err := decrypted.ParseCache(rawdecrypted, keytype)
-		if err != nil {
-			return errors.Wrap(err, fmt.Sprintf("error parsing tdata file %s", fpath.Name()))
-		}
-
-		decryptedfile = path.Join(keytypepath, fpath.Name()+".cache")
-		switch c := cache.(type) {
-		case decrypted.Audios:
-			ioutil.WriteFile(decryptedfile, c.Data[:c.Len], 0444)
-		case decrypted.StickerImages:
-			ioutil.WriteFile(decryptedfile, c.Data[:c.Len], 0444)
-		case decrypted.Images:
-			ioutil.WriteFile(decryptedfile, c.Data[:c.Len], 0444)
-		}
-
-		decryptedfile = path.Join(keytypepath, fpath.Name()+".json")
-		b, err := json.Marshal(cache)
-		if err != nil {
-			return fmt.Errorf("could not convert to json '%s': %+v", decryptedfile, err)
-		}
-		if string(b) != "{}" {
-			ioutil.WriteFile(decryptedfile, b, 0444)
-		}
-
-	}
-	return nil
 }

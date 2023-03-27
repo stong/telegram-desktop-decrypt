@@ -44,8 +44,12 @@ func ReadDMap(data []byte) (DMap, error) {
 			return result, err
 		}
 		switch LSK[keytype].(type) {
-		case SelfSerialized,
-			Locations,
+		case SelfSerialized:
+			binary.Read(r, binary.BigEndian, &size)
+			buf := make([]byte, size)
+			r.Read(buf)
+			result.Files[keyToFilename(key)] = keytype
+		case Locations,
 			ReportSpamStatuses,
 			TrustedBots,
 			RecentStickersOld,
@@ -89,6 +93,12 @@ func ReadDMap(data []byte) (DMap, error) {
 				binary.Read(r, binary.BigEndian, &size)
 				result.Files[keyToFilename(key)] = keytype
 			}
+		case MaskKeys,
+			CustomEmojiKeys:
+			binary.Read(r, binary.BigEndian, &key)
+			binary.Read(r, binary.BigEndian, &first)
+			binary.Read(r, binary.BigEndian, &second)
+			result.Files[keyToFilename(key)] = keytype
 		default:
 			return result, errors.New(fmt.Sprintf("keytype not treated: %d", keytype))
 		}

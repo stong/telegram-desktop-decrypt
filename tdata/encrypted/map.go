@@ -53,15 +53,3 @@ func (t EMap) GetKey(password string) ([]byte, error) {
 	}
 	return streams[0], nil
 }
-
-func (t EMap) Decrypt(password string) ([]byte, error) {
-	localkey, err := t.GetKey(password)
-	if err != nil {
-		return nil, fmt.Errorf("could not decrypt map file: %v", err)
-	}
-	data, err := decrypt.DecryptLocal(t.MapEncrypted, localkey)
-	if err != nil {
-		return nil, fmt.Errorf("could not decrypt map file: %v", err)
-	}
-	return data, nil
-}

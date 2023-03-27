@@ -33,6 +33,8 @@ var LSK = map[uint32]interface{}{
 	0x13: ExportSettings{},
 	0x14: Background{},
 	0x15: SelfSerialized{},
+	0x16: MaskKeys{},
+	0x17: CustomEmojiKeys{},
 }
 
 var DBI = map[uint32]string{
@@ -258,6 +260,10 @@ func ReverseLSK(a interface{}) uint32 {
 		return 0x14
 	case SelfSerialized:
 		return 0x15
+	case MaskKeys:
+		return 0x16
+	case CustomEmojiKeys:
+		return 0x17
 	default:
 		panic(fmt.Errorf("could not use ReverseLSK on %v", a))
 	}
@@ -554,3 +560,7 @@ type ExportSettings struct{}
 type Background struct{}
 
 type SelfSerialized struct{}
+
+type MaskKeys struct{}
+
+type CustomEmojiKeys struct{}

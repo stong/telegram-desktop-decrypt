@@ -3,7 +3,6 @@ package encrypted
 import (
 	"fmt"
 
-	"github.com/atilaromero/telegram-desktop-decrypt/decrypt"
 	"github.com/atilaromero/telegram-desktop-decrypt/qt"
 	"github.com/atilaromero/telegram-desktop-decrypt/tdata"
 )
@@ -23,12 +22,4 @@ func ReadECache(rawtdf tdata.RawTDF) (ECache, error) {
 	}
 	result.Encrypted = streams[0]
 	return result, err
-}
-
-func (t ECache) Decrypt(localkey []byte) ([]byte, error) {
-	data, err := decrypt.DecryptLocal(t.Encrypted, localkey)
-	if err != nil {
-		return nil, fmt.Errorf("could not decrypt cache file: %v", err)
-	}
-	return data, nil
 }
