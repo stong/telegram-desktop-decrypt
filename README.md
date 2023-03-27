@@ -10,13 +10,8 @@ This tool can decrypt those files, which contains settings and cache files, but 
 ## Usage
 
 ```
-./telegram-desktop-decrypt bulkdecrypt tdata/D877F783D5D3EF8C/map0 outdir
+./telegram-desktop-decrypt decrypt tdata/keys_data tdata/D877F783D5D3EF8C/1234567890ABCD -s 0 -o outfile
+./telegram-desktop-decrypt map listkeys tdata/keys_data tdata/D877F783D5D3EF8C/maps -s 0 -o outfile
+./telegram-desktop-decrypt key getkey tdata/keys_data
 ```
 
-This will produce 3 kinds of files:
-  - .rawencrypted: decrypted unparsed file
-  - .cache: The cache file (may be a JPEG, video, or any type of shared file).
-  - .json: settings or metadata about the cache file.
-  
-The .rawencrypted files are files that were decrypted but are still unparsed.
-Only some types of structure have parsing support. For those, .json or .cache files are produced too.
