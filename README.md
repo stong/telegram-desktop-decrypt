@@ -14,4 +14,3 @@ This tool can decrypt those files, which contains settings and cache files, but 
 ./telegram-desktop-decrypt map listkeys tdata/keys_data tdata/D877F783D5D3EF8C/maps -s 0 -o outfile
 ./telegram-desktop-decrypt key getkey tdata/keys_data
 ```
-
